@@ -21,6 +21,8 @@ using System.Xml.Linq;
 namespace Grimoire.Tools
 {
 	public delegate void FlashCallHandler(AxShockwaveFlash flash, string function, params object[] args);
+	
+	public delegate void FlashCallHandler2(string function, params object[] args);
 
 	public delegate void FlashErrorHandler(AxShockwaveFlash flash, Exception e, string function, params object[] args);
 
@@ -32,6 +34,8 @@ namespace Grimoire.Tools
 		public static AxShockwaveFlash flash;
 
 		public static event FlashCallHandler FlashCall;
+
+		public static event FlashCallHandler2 FlashCall2;
 
 		public static event FlashErrorHandler FlashError;
 
@@ -386,6 +390,7 @@ namespace Grimoire.Tools
 					{
 						case "OnConnection":
 							Root.Instance.HideCharSelect();
+							Flash.Call("SetFPS", int.Parse(ClientConfig.GetValue(ClientConfig.C_FPS)));
 							break;
 						case "OnConnectionLost":
 							Root.Instance.LoadCharSelect();
@@ -397,7 +402,7 @@ namespace Grimoire.Tools
 					SwfLoadProgress?.Invoke(int.Parse(args[0].ToString()));
 					if (args[0].ToString() == "100")
 					{
-						Flash.Call2("SetTitle", $"Grimlite Li {Program.Version}");
+						Flash.Call("SetTitle", $"Grimlite Li {Program.Version}");
 					}
 					break;
 
@@ -440,6 +445,7 @@ namespace Grimoire.Tools
 				case "packetFromServer":
 					Proxy.Instance.OnServerMessage(args[0].ToString());
 					args[0] = ProcessPacketFromServer((string)args[0]);
+					FlashCall2?.Invoke(name, args[0]);
 					FlashCall?.Invoke(flash, name, args[0]);
 					break;
 
@@ -486,6 +492,14 @@ namespace Grimoire.Tools
 			return packet;
 		}
 
+		public static void setPreVars()
+		{
+			Configuration.Tempvariable["UID"] = Call<int>("UserID", new object[0]).ToString();
+			Configuration.Tempvariable["Username"] = Call<string>("GetUsername", new string[0]);
+			string nameColor = ClientConfig.GetValue(ClientConfig.C_NAME_COLOR);
+			if (nameColor != "0") Call("ChangeColorName", nameColor);
+		}
+
 		public static string ProcessPext(string text)
 		{
 			dynamic packet = JsonConvert.DeserializeObject<dynamic>(text);
@@ -496,6 +510,10 @@ namespace Grimoire.Tools
 				//Console.WriteLine($"cmd: {data.cmd}");
 				switch ((string)data.cmd)
 				{
+					case "initUserDatas":
+						Flash.setPreVars();
+						break;
+
 					case "loadInventoryBig":
 						Player.Bank.GetBank();
 						break;
