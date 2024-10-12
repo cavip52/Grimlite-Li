@@ -11,12 +11,9 @@ namespace Grimoire.Botting.Commands.Combat
         public string Cell { get; set; }
         public string Pad { get; set; }
         public string Monster { get; set; }
-        public string MonId { get; set; }
         public string ItemName { get; set; }
         public ItemType ItemType { get; set; }
         public string Quantity { get; set; }
-        public bool IsGetDrops { get; set; } = false;
-        public int AfterKills { get; set; } = 1;
         public string KillPriority { get; set; } = "";
         public bool AntiCounter { get; set; } = false;
         public string QuestId { get; set; }
@@ -66,8 +63,6 @@ namespace Grimoire.Botting.Commands.Combat
                 ItemName = this.ItemName,
                 ItemType = this.ItemType,
                 Quantity = this.Quantity,
-                IsGetDrops = this.IsGetDrops,
-                AfterKills = this.AfterKills,
                 QuestId = this.QuestId,
                 DelayAfterKill = this.DelayAfterKill,
                 KillPriority = this.KillPriority,

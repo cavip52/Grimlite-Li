@@ -35,6 +35,7 @@ using System.IO.Compression;
 using System.Text;
 using Grimoire.Networking.Handlers;
 using Grimoire.Utils;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace Grimoire.UI
 {
@@ -141,9 +142,6 @@ namespace Grimoire.UI
 		}
 
 		private DarkButton btnSetSpawn2;
-		private DarkGroupBox darkGroupBox15;
-		private DarkButton btnFollowCmd;
-		private DarkTextBox tbFollowPlayer;
 		private DarkGroupBox darkGroupBox16;
 		private DarkCheckBox chkAMStopBot;
 		private DarkCheckBox chkAMLogout;
@@ -296,11 +294,13 @@ namespace Grimoire.UI
 				RestMp = (int)numRestMP.Value,
 				RestHp = (int)numRest.Value,
 				RestartUponDeath = chkRestartDeath.Checked,
+				RestartOnAFK = chkRestartAFK.Checked,
 				AFK = chkAFK.Checked,
 				AntiCounter = chkAntiCounter.Checked,
 				DisableAnimations = chkDisableAnims.Checked,
 				FollowCheck = chkFollowOnly.Checked,
-				FollowName = tbFollowPlayer2.Text
+				FollowName = tbFollowPlayer2.Text,
+				AutoZone = cmbSpecials.SelectedItem != null ? cmbSpecials.SelectedItem.ToString() : string.Empty,
 			};
 		}
 
@@ -350,11 +350,13 @@ namespace Grimoire.UI
 				RestMp = (int)numRestMP.Value,
 				RestHp = (int)numRest.Value,
 				RestartUponDeath = chkRestartDeath.Checked,
+				RestartOnAFK = chkRestartAFK.Checked,
 				AFK = chkAFK.Checked,
 				AntiCounter = chkAntiCounter.Checked,
 				DisableAnimations = chkDisableAnims.Checked,
 				FollowCheck = chkFollowOnly.Checked,
-				FollowName = tbFollowPlayer2.Text
+				FollowName = tbFollowPlayer2.Text,
+				AutoZone = cmbSpecials.SelectedItem != null ? cmbSpecials.SelectedItem.ToString() : string.Empty,
 			};
 		}
 
@@ -455,6 +457,7 @@ namespace Grimoire.UI
 				chkHP.Checked = config.RestIfHp;
 				chkBankOnStop.Checked = config.BankOnStop;
 				chkRestartDeath.Checked = config.RestartUponDeath;
+				chkRestartAFK.Checked = config.RestartOnAFK;
 				chkAFK.Checked = config.AFK;
 				chkAntiCounter.Checked = config.AntiCounter;
 				txtAuthor.Text = config.Author;
@@ -467,6 +470,15 @@ namespace Grimoire.UI
 					rtbInfo.Text = config.Description;
 				chkFollowOnly.Checked = config.FollowCheck;
 				tbFollowPlayer2.Text = config.FollowName == null ? "Player" : config.FollowName;
+				if (!string.IsNullOrEmpty(config.AutoZone))
+				{
+					int index = cmbSpecials.FindStringExact(config.AutoZone);
+					cmbSpecials.SelectedIndex = index;
+				}
+				else
+				{
+					cmbSpecials.SelectedIndex = -1;
+				}
 			}
 		}
 
@@ -909,6 +921,7 @@ namespace Grimoire.UI
 			string text = txtJoin.Text;
 			string cell = string.IsNullOrEmpty(txtJoinCell.Text) ? "Enter" : txtJoinCell.Text;
 			string pad = string.IsNullOrEmpty(txtJoinPad.Text) ? "Spawn" : txtJoinPad.Text;
+			string swf = cbJoinMapSwf.Checked && !tbJoinMapSwf.Text.Contains("(.swf)") ? tbJoinMapSwf.Text : "";
 			if (text.Length > 0)
 			{
 				AddCommand(new CmdJoin
@@ -916,9 +929,15 @@ namespace Grimoire.UI
 					Map = txtJoin.Text,
 					Cell = cell,
 					Pad = pad,
-					Try = (int)numJoinTry.Value
+					Try = (int)numJoinTry.Value,
+					MapSwf = swf
 				}, (ModifierKeys & Keys.Control) == Keys.Control);
 			}
+		}
+
+		private void cbJoinMapSwf_CheckedChanged(object sender, EventArgs e)
+		{
+			tbJoinMapSwf.Enabled = cbJoinMapSwf.Checked;
 		}
 
 		private void btnCellSwap_Click(object sender, EventArgs e)
@@ -1080,6 +1099,11 @@ namespace Grimoire.UI
 			}, (ModifierKeys & Keys.Control) == Keys.Control);
 		}
 
+		private void btnMapItemExe_Click(object sender, EventArgs e)
+		{
+			Player.GetMapItem((int)numMapItem.Value);
+		}
+
 		private void btnBoth_Click(object sender, EventArgs e)
 		{
 			string text = txtWhitelist.Text;
@@ -1133,21 +1157,53 @@ namespace Grimoire.UI
 
 		private void btnBuy_Click(object sender, EventArgs e)
 		{
-			if (txtShopItem.TextLength > 0)
+			if (tbShopItemName.TextLength > 0)
 			{
-				AddCommand(new CmdBuy
+				Int32.TryParse(tbShopId.Text, out int shopId);
+				Int32.TryParse(tbItemId.Text, out int itemId);
+				Int32.TryParse(tbShopItemId.Text, out int shopItemId);
+				int qty = (int)numBuyQty.Value;
+
+				if (radBuyByID.Checked)
 				{
-					ItemName = txtShopItem.Text,
-					ShopId = (int)numShopId.Value
-				}, (ModifierKeys & Keys.Control) == Keys.Control);
+					if (shopId == 0 || itemId == 0 || shopItemId == 0) return;
+					AddCommand(new CmdBuy
+					{
+						ShopId = shopId,
+						ItemId = itemId,
+						ShopItemId = shopItemId,
+						Qty = qty,
+						ByID = radBuyByID.Checked,
+					}, (ModifierKeys & Keys.Control) == Keys.Control);
+
+				}
+
+				if (radBuyByName.Checked)
+				{
+					if (shopId == 0) return;
+					AddCommand(new CmdBuy
+					{
+						ItemName = tbShopItemName.Text,
+						ShopId = shopId,
+						Qty = qty,
+						ByID = radBuyByID.Checked,
+					}, (ModifierKeys & Keys.Control) == Keys.Control);
+				}
 			}
+		}
+
+		private void radBuyByName_CheckedChanged(object sender, EventArgs e)
+		{
+			tbShopItemId.Enabled = !radBuyByName.Checked;
+			tbItemId.Enabled = !radBuyByName.Checked;
+			tbShopItemName.Enabled = radBuyByName.Checked;
 		}
 
 		private void btnQuestAdd_Click(object sender, EventArgs e)
 		{
 			AddQuest(
-				(int)numQuestID.Value, 
-				chkQuestItem.Checked ? numQuestItem.Value.ToString() : null, 
+				(int)numQuestListID.Value,
+				chkQuestListItem.Checked ? numQuestListItem.Value.ToString() : null, 
 				chkReloginCompleteQuest.Checked
 				);
 		}
@@ -1342,13 +1398,19 @@ namespace Grimoire.UI
 			}
 		}
 
+		private void lbLabels_DoubleClick(object sender, EventArgs e)
+		{
+			string data2 = this.lbLabels.SelectedItem.ToString().Replace("[", "").Replace("]", "");
+			this.txtLabel.Text = $"{data2}";
+		}
+
 		private void btnGotoLabel_Click(object sender, EventArgs e)
 		{
 			if (txtLabel.TextLength > 0)
 			{
 				AddCommand(new CmdGotoLabel
 				{
-					Label = txtLabel.Text
+					Label = txtLabel.Text.ToUpper()
 				}, (ModifierKeys & Keys.Control) == Keys.Control);
 			}
 			GetAllCommands<CmdLabel>(lbLabels);
@@ -1360,7 +1422,7 @@ namespace Grimoire.UI
 			{
 				AddCommand(new CmdLabel
 				{
-					Name = txtLabel.Text
+					Name = txtLabel.Text.ToUpper()
 				}, (ModifierKeys & Keys.Control) == Keys.Control);
 			}
 			GetAllCommands<CmdLabel>(lbLabels);
@@ -1835,12 +1897,21 @@ namespace Grimoire.UI
 			chkReloginCompleteQuest.Enabled = !chkEnable.Checked;
 			numQuestDelay.Enabled = !chkEnable.Checked;
 			numBotDelay.Enabled = !chkEnable.Checked;
+			if (cmbSpecials.SelectedIndex != -1)
+			{
+				chkSpecial.Enabled = !chkEnable.Checked;
+			}
 
 			chkEnable.Enabled = false;
 			Root.Instance.chkStartBot.Enabled = false;
 
 			if (chkEnable.Checked)
 			{
+				if (cmbSpecials.SelectedIndex != -1 && !chkSpecial.Checked)
+				{
+					chkSpecial.Checked = true;
+				}
+
 				setPresetsSkills();
 
 				if (lstItems.Items.Count > 0 && chkInventOnStart.Checked)
@@ -1889,6 +1960,12 @@ namespace Grimoire.UI
 					Proxy.Instance.UnregisterHandler(SpecialJsonHandler);
 				if (SpecialXtHandler != null)
 					Proxy.Instance.UnregisterHandler(SpecialXtHandler);
+
+				if (cmbSpecials.SelectedIndex != -1 && chkSpecial.Enabled)
+				{
+					chkSpecial.Checked = false;
+					chkSpecial.Enabled = true;
+				}
 			}
 			toggleAntiMod(chkAntiMod.Checked && chkEnable.Checked);
 
@@ -1930,6 +2007,13 @@ namespace Grimoire.UI
 			}
 		}
 
+		public void RemoveQuest(int QuestID, string ItemID = null, bool safeRelogin = false)
+		{
+			var i = lstQuests.Items.Cast<Quest>().ToList().FirstOrDefault((Quest q) =>
+				q.Id == QuestID && q.ItemId == ItemID && q.SafeRelogin == safeRelogin);
+			lstQuests.Items.Remove(i);
+		}
+
 		public void AddDrop(string Name)
 		{
 			if (!lstDrops.Items.Contains(Name))
@@ -1946,20 +2030,23 @@ namespace Grimoire.UI
 
 		private void btnBuyFast_Click(object sender, EventArgs e)
 		{
-			if (txtShopItem.TextLength > 0)
+			if (tbShopItemName.TextLength > 0)
 			{
 				AddCommand(new CmdBuyFast
 				{
-					ItemName = txtShopItem.Text
+					ItemName = tbShopItemName.Text,
+					Qty = (int)numBuyQty.Value
 				}, (ModifierKeys & Keys.Control) == Keys.Control);
 			}
 		}
 
 		private void btnLoadShop_Click(object sender, EventArgs e)
 		{
-			AddCommand(new Botting.Commands.Item.CmdLoad
+			Int32.TryParse(tbShopId.Text, out int shopId);
+			if (shopId == 0) return;
+			AddCommand(new CmdLoad
 			{
-				ShopId = (int)numShopId.Value
+				ShopId = shopId,
 			}, (ModifierKeys & Keys.Control) == Keys.Control);
 		}
 
@@ -2174,20 +2261,12 @@ namespace Grimoire.UI
 				Type = Skill.SkillType.Normal,
 			};
 
-			/*AddCommand(new CmdUseSkill
+			AddCommand(new CmdUseSkill
 			{
 				Index = skill.Index,
 				Wait = cbSkillCmdWait.Checked,
 				Force = chkForceSkill.Checked,
 				Monster = target
-			}, (ModifierKeys & Keys.Control) == Keys.Control);*/
-
-			AddCommand(new CmdUseSkill
-			{
-				Skill = skill,
-				Wait = cbSkillCmdWait.Checked,
-				Targeted = !chkForceSkill.Checked,
-				Target = target
 			}, (ModifierKeys & Keys.Control) == Keys.Control);
 		}
 
@@ -2265,14 +2344,14 @@ namespace Grimoire.UI
 			IBotCommand cmd;
 			switch (((Button)sender).Text)
 			{
-				case "Up++":
+				case "++":
 					cmd = new CmdIndex
 					{
 						Type = CmdIndex.IndexCommand.Up,
 						Index = (int)numIndexCmd.Value
 					};
 					break;
-				case "Down--":
+				case "--":
 					cmd = new CmdIndex
 					{
 						Type = CmdIndex.IndexCommand.Down,
@@ -2479,7 +2558,7 @@ namespace Grimoire.UI
 			if (cmdText.Contains(':'))
 			{
 				toDraw = lstCommands.Items[e.Index].ToString().Split(':');
-				Region second = DrawString(e.Graphics, toDraw[0], font, color, region, GetCurrentBoolCentered(scmd) ? centered : StringFormat.GenericDefault);
+				Region second = DrawString(e.Graphics, toDraw[0] + ": ", font, color, region, GetCurrentBoolCentered(scmd) ? centered : StringFormat.GenericDefault);
 				region = new RectangleF(region.X + second.GetBounds(e.Graphics).Width + 3, region.Y, region.Width, region.Height);
 				if (toDraw[1].Contains(","))
 				{
@@ -2741,8 +2820,6 @@ namespace Grimoire.UI
 					}
 				}
 
-				int times = 0;
-
 				CmdShortHunt cmd = new CmdShortHunt
 				{
 					Map = tbMapF.Text,
@@ -2752,8 +2829,6 @@ namespace Grimoire.UI
 					Monster = monster.Trim(),
 					ItemName = itemName.Trim(),
 					Quantity = itemQty.Trim(),
-					IsGetDrops = chkGetAfterF.Checked,
-					AfterKills = int.TryParse(this.tbGetAfterF.Text, out times) ? times : 1,
 					BlankFirst = cbBlankFirstF.Checked
 				};
 
@@ -2783,6 +2858,7 @@ namespace Grimoire.UI
 
 		private void btnQAddToWhitelist_Click(object sender, EventArgs e)
 		{
+			if (!Player.IsLoggedIn) return;
 			int idQuest = Decimal.ToInt32(numQQuestId.Value);
 			Player.Quests.Load(idQuest);
 
@@ -2828,6 +2904,14 @@ namespace Grimoire.UI
 		private void btnSetFPS_Click(object sender, EventArgs e)
 		{
 			Flash.Call("SetFPS", (int)numSetFPS.Value);
+		}
+
+		private void btnSetFPSCmd_Click(object sender, EventArgs e)
+		{
+			AddCommand(new CmdSetFPS
+			{
+				FPS = (int)numSetFPS.Value
+			}, (ModifierKeys & Keys.Control) == Keys.Control);
 		}
 
 		private void btnBSStart_Click(object sender, EventArgs e)
@@ -2900,7 +2984,7 @@ namespace Grimoire.UI
 		{
 			AddCommand(new CmdFollow
 			{
-				PlayerName = tbFollowPlayer.Text
+				PlayerName = tbFollowPlayer.Text.ToLower(),
 			}, (ModifierKeys & Keys.Control) == Keys.Control);
 		}
 
@@ -2950,10 +3034,10 @@ namespace Grimoire.UI
 						}
 				}
 
-				if (data.cmd == "initUserData")
+				if (data.cmd == "uotls")
 				{
-					JObject playerData = (JObject)data.data;
-					showLog(playerData["strUsername"]?.ToString(), playerData["intAccessLevel"]?.ToString());
+					string unm = data.unm;
+					if (unm != null) showLog(unm, Player.GetAccessLevel(unm));
 				}
 			}
 		}
@@ -2981,6 +3065,7 @@ namespace Grimoire.UI
 					color = "Unknown";
 					break;
 			}
+			Console.WriteLine($"{username}: {accessLevel}");
 
 			if (_accessLevel >= 30)
 			{
@@ -3062,7 +3147,7 @@ namespace Grimoire.UI
 		{
 			if (chkFollowOnly.Checked && chkEnableSettings.Checked)
 			{
-				string PlayerName = tbFollowPlayer2.Text;
+				string PlayerName = tbFollowPlayer2.Text.ToLower();
 				string[] safeCell = ClientConfig.GetValue(ClientConfig.C_SAFE_CELL).Split(',');
 				Proxy.Instance.RegisterHandler(HandlerFollow);
 				while (chkFollowOnly.Checked && chkEnableSettings.Checked)
@@ -3145,13 +3230,21 @@ namespace Grimoire.UI
 				return;
 			}
 			cmbSpecials.Enabled = !chkSpecial.Checked;
-
 			if (chkSpecial.Checked)
 			{
 				switch (cmbSpecials.SelectedItem.ToString())
 				{
 					case "Auto Zone - Ultradage":
 						SpecialJsonHandler = new HandlerAutoZoneUltraDage();
+						break;
+					case "Auto Zone - Dark Carnax":
+						SpecialJsonHandler = new HandlerAutoZoneDarkCarnax();
+						break;
+					case "Auto Zone - Astral Empyrean":
+						SpecialJsonHandler = new HandlerAutoZoneAstralEmpyrean();
+						break;
+					case "Auto Zone - Queen Iona":
+						SpecialJsonHandler = new HandlerAutoZoneQueenIona();
 						break;
 				}
 			} 
@@ -3189,6 +3282,74 @@ namespace Grimoire.UI
 		private void btnHideLoading_Click(object sender, EventArgs e)
 		{
 			Flash.Call2("HideConnMC", new object[0]);
+		}
+
+		private void chkQuestListItem_CheckedChanged(object sender, EventArgs e)
+		{
+			numQuestListItem.Enabled = chkQuestListItem.Checked;
+		}
+
+		private void btnAddQuestList_Click(object sender, EventArgs e)
+		{
+			string itemId = null;
+			if (chkQuestListItem.Checked)
+			{
+				itemId = numQuestListItem.Value.ToString();
+			}
+			AddCommand(new CmdAddQuestList
+			{
+				Id = (int)numQuestListID.Value,
+				ItemId = itemId,
+				SafeRelogin = chkReloginCompleteQuest.Checked
+			}, (ModifierKeys & Keys.Control) == Keys.Control);
+		}
+
+		private void btnRemoveQuestList_Click(object sender, EventArgs e)
+		{
+			string itemId = null;
+			if (chkQuestListItem.Checked)
+			{
+				itemId = numQuestListItem.Value.ToString();
+			}
+			AddCommand(new CmdRemoveQuestList
+			{
+				Id = (int)numQuestListID.Value,
+				ItemId = itemId,
+				SafeRelogin = chkReloginCompleteQuest.Checked
+			}, (ModifierKeys & Keys.Control) == Keys.Control);
+		}
+
+		int clickCounter = 0;
+		private void pictureBox1_Click(object sender, EventArgs e)
+		{
+			clickCounter++;
+			if (clickCounter >= 3)
+			{
+				Root.Instance.ShowForm(new Egg());
+				clickCounter = 0;
+			}
+		}
+
+		private void btnStopAttack_Click(object sender, EventArgs e)
+		{
+			AddCommand(new CmdCancelTarget(), (ModifierKeys & Keys.Control) == Keys.Control);
+		}
+
+		private void btnLeaveCombat_Click(object sender, EventArgs e)
+		{
+			AddCommand(new CmdCancelTarget
+			{
+				LeaveCombat = true
+			}, (ModifierKeys & Keys.Control) == Keys.Control);
+		}
+
+		private async void btnLoadMap_Click(object sender, EventArgs e)
+		{
+			if (!tbLoadMap.Text.Contains(".swf") || tbLoadMap.Text.Contains("(.swf)")) return;
+			btnLoadMap.Enabled = false;
+			World.LoadMap(tbLoadMap.Text);
+			await Task.Delay(1000);
+			btnLoadMap.Enabled = true;
 		}
 	}
 }
